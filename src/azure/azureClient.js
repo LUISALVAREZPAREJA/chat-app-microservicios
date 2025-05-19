@@ -12,7 +12,7 @@ const blobServiceClient = BlobServiceClient.fromConnectionString(blobConnectionS
 const containerClient = blobServiceClient.getContainerClient('archivos');
 
 // 2. Conexión para tablas (requiere URL + credencial)
-const tableName = 'Mensajes';
+const tableName = 'mensajes';
 const tableUrl = `https://${account}.table.core.windows.net`;
 const credential = new AzureNamedKeyCredential(account, key);
 const tableClient = new TableClient(`${tableUrl}`, tableName, credential);
