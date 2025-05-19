@@ -27,6 +27,7 @@ async function guardarMensaje({ texto, destinatarios = "", remitente, urlArchivo
 
     await tableClient.createEntity(entidad);
     console.log("✅ Entidad guardada:", entidad);
+    
 
     mensajesGuardados.push(entidad);
   }
@@ -81,7 +82,7 @@ async function listarMensajesNoLeidos(destinatario) {
 
   const iterator = tableClient.listEntities({
     queryOptions: {
-      filter: `PartitionKey eq 'chat_general'`
+      filter: `PartitionKey eq 'chat_general' and leido eq false`
     }
   });
 
@@ -100,22 +101,27 @@ async function listarMensajesNoLeidos(destinatario) {
 async function marcarMensajesComoLeidos(destinatario, remitente) {
   const iterator = tableClient.listEntities({
     queryOptions: {
-      filter: `PartitionKey eq 'chat_general'`
+      filter: `PartitionKey eq 'chat_general' and leido eq false`
     }
   });
 
   for await (const entidad of iterator) {
+    const destinatarios = entidad.destinatario?.split(',').map(d => d.trim());
+
     const esEntreUsuarios =
-      entidad.destinatario === destinatario &&
-      entidad.remitente === remitente &&
-      entidad.leido === false;
+      destinatarios?.includes(destinatario) &&
+      entidad.remitente === remitente;
 
     if (esEntreUsuarios) {
-      entidad.leido = true;
-      await tableClient.updateEntity(entidad, "Merge");
+      await tableClient.updateEntity({
+        partitionKey: entidad.partitionKey,
+        rowKey: entidad.rowKey,
+        leido: true,
+      }, "Merge");
     }
   }
 }
+
 
 
 

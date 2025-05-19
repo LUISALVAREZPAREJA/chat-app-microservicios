@@ -37,7 +37,7 @@ async function listarUsuarios() {
 
   const entidades = tableClient.listEntities({
     queryOptions: {
-       filter: `PartitionKey eq '${partitionKey}' and correo eq '${correo}'`
+      filter: `PartitionKey eq '${partitionKey}'`
     }
   });
 
