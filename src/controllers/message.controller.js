@@ -2,31 +2,53 @@ const { guardarMensaje } = require("../services/table.service");
 const { enviarNotificacion } = require('../services/queue.service');
 const { listarMensajesPorDestinatario, listarMensajesEntreUsuarios, listarMensajesNoLeidos, marcarMensajesComoLeidos } = require("../services/table.service");
 
-async function crearMensaje(req, res) {
+const crearMensaje = async (req, res) => {
+  console.log("🧾 req.body:", req.body);
+
   try {
     const { texto, destinatarios, remitente, urlArchivo } = req.body;
 
-    if (!texto && !urlArchivo) {
-      return res.status(400).json({ error: "Debe enviar texto o archivo" });
+    // Aseguramos que destinatarios sea un array, si es string lo convertimos en array
+    let destinatariosArray = [];
+
+    if (Array.isArray(destinatarios)) {
+      destinatariosArray = destinatarios;
+    } else if (typeof destinatarios === 'string') {
+      // Si te llega un string separado por comas, por ejemplo:
+      destinatariosArray = destinatarios.split(',').map(d => d.trim());
+    } else {
+      throw new Error("El campo destinatarios es inválido o no fue enviado");
     }
 
-    const mensajes = await guardarMensaje({ texto, destinatarios, remitente, urlArchivo });
+    const mensajesGuardados = await guardarMensaje({
+  texto,
+  destinatarios: destinatariosArray,
+  remitente,
+  urlArchivo,
+});
 
-    // Enviar a la cola uno por uno
-    for (const mensaje of mensajes) {
-      console.log("📤 Enviando a la cola el mensaje:", mensaje);
-      await enviarNotificacion(mensaje);
-    }
+// Enviar notificación a cada destinatario
+await Promise.all(
+  mensajesGuardados.map(mensaje =>
+    enviarNotificacion({
+      destinatario: mensaje.destinatario,
+      remitente: mensaje.remitente,
+      texto: mensaje.texto,
+      urlArchivo: mensaje.urlArchivo,
+      fecha: mensaje.fecha,
+    })
+  )
+);
 
-    res.status(201).json({
-      mensaje: "Mensaje(s) guardado(s) correctamente",
-      data: mensajes,
-    });
+
+
+    res.status(201).json(mensajesGuardados);
   } catch (error) {
     console.error("❌ Error en crearMensaje:", error);
-    res.status(500).json({ error: "Error al guardar mensaje" });
+    res.status(500).json({ error: error.message });
   }
-}
+};
+
 
 
 async function obtenerMensajesPorDestinatario(req, res) {

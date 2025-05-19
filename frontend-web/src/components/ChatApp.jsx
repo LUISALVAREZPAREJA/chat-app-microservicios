@@ -3,13 +3,19 @@ import { useAuth } from "../Context/AuthContext"; // Asegúrate de tener este co
 
 function ChatApp() {
   const { user } = useAuth(); // user = { nombre, correo }
-  const [destinatarios, setDestinatarios] = useState([]);
-  const [destinatarioSeleccionado, setDestinatarioSeleccionado] = useState("");
-  const [mensaje, setMensaje] = useState("");
-  const [mensajes, setMensajes] = useState([]);
-  const [busqueda, setBusqueda] = useState("");
-  const [archivo, setArchivo] = useState(null);
-  const [noLeidos, setNoLeidos] = useState({});
+const [destinatarios, setDestinatarios] = useState([]);
+
+// Destinatario para el chat (solo uno, string)
+const [destinatarioSeleccionado, setDestinatarioSeleccionado] = useState("");
+
+// Destinatarios para enviar mensaje (múltiples, array de strings)
+const [destinatariosSeleccionadosParaEnviar, setDestinatariosSeleccionadosParaEnviar] = useState([]);
+
+const [mensaje, setMensaje] = useState("");
+const [mensajes, setMensajes] = useState([]);
+const [busqueda, setBusqueda] = useState("");
+const [archivo, setArchivo] = useState(null);
+const [noLeidos, setNoLeidos] = useState({});
 
 
 
@@ -78,8 +84,16 @@ function ChatApp() {
 
 
  const enviarMensaje = async () => {
-  if ((!mensaje.trim() && !archivo) || destinatarioSeleccionado === user.correo) return;
+   console.log("Mensaje:", mensaje);
+  console.log("Archivo:", archivo);
+  console.log("Destinatarios para enviar:", destinatariosSeleccionadosParaEnviar);
 
+  if ((!mensaje.trim() && !archivo) || destinatariosSeleccionadosParaEnviar.length === 0) {
+    console.log("❌ No se cumple la condición para enviar");
+    return;
+  }
+
+  console.log("✅ Enviando mensaje...");
   let urlArchivo = "";
 
   // Subir archivo si existe
@@ -101,16 +115,13 @@ function ChatApp() {
     }
   }
 
-  // Luego enviamos el mensaje
   try {
     const response = await fetch("http://localhost:5000/api/mensajes", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         texto: mensaje,
-        destinatarios: destinatarioSeleccionado,
+        destinatarios: destinatariosSeleccionadosParaEnviar, // array de correos
         remitente: user.correo,
         urlArchivo,
       }),
@@ -123,10 +134,12 @@ function ChatApp() {
 
     setMensaje("");
     setArchivo(null);
+    setDestinatariosSeleccionadosParaEnviar([]); // Limpiar selección después de enviar (opcional)
   } catch (error) {
     console.error("❌ Error al enviar mensaje:", error);
   }
 };
+
 
   useEffect(() => {
   const obtenerNoLeidos = async () => {
@@ -220,29 +233,55 @@ useEffect(() => {
         </div>
 
         {/* Lista de users */}
-       <ul className="list-group list-group-flush overflow-auto" style={{ flexGrow: 1 }}>
+<ul className="list-group list-group-flush overflow-auto" style={{ flexGrow: 1 }}>
   {destinatarios
-  
     .filter(d =>
       (d.nombre || "").toLowerCase().includes((busqueda || "").toLowerCase())
     )
     .map((d) => (
-      <li
-        key={d.correo}
-        className={`list-group-item ${d.correo === destinatarioSeleccionado ? "active" : ""}`}
+      <li 
+        key={d.correo} 
+        className={`list-group-item ${d.correo === destinatarioSeleccionado ? "active" : ""}`} 
         style={{ cursor: "pointer" }}
-        onClick={() => setDestinatarioSeleccionado(d.correo)}
       >
-        <div className="d-flex justify-content-between align-items-center">
-  <span>{d.nombre}</span>
-  {noLeidos[d.correo] && (
-    <span className="badge bg-danger">{noLeidos[d.correo]}</span>
-  )}
-</div>
+        <div className="d-flex align-items-center justify-content-between">
+          {/* Checkbox para selección múltiple envío */}
+          <div className="form-check" onClick={e => e.stopPropagation()}>
+            <input
+              className="form-check-input"
+              type="checkbox"
+              value={d.correo}
+              id={`chk-${d.correo}`}
+              checked={destinatariosSeleccionadosParaEnviar.includes(d.correo)}
+              onChange={() => {
+                if (destinatariosSeleccionadosParaEnviar.includes(d.correo)) {
+                  setDestinatariosSeleccionadosParaEnviar(destinatariosSeleccionadosParaEnviar.filter(c => c !== d.correo));
+                } else {
+                  setDestinatariosSeleccionadosParaEnviar([...destinatariosSeleccionadosParaEnviar, d.correo]);
+                }
+              }}
+            />
+          </div>
 
+          {/* Nombre para seleccionar chat */}
+          <div 
+            onClick={() => setDestinatarioSeleccionado(d.correo)} 
+            style={{ flexGrow: 1, marginLeft: '10px', cursor: 'pointer' }}
+          >
+            <span>{d.nombre}</span>
+          </div>
+
+          {/* Badge de mensajes no leídos */}
+          {noLeidos[d.correo] && (
+            <span className="badge bg-danger ms-2">{noLeidos[d.correo]}</span>
+          )}
+        </div>
       </li>
     ))}
 </ul>
+
+
+
 
       </div>
 

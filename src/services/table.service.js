@@ -1,36 +1,38 @@
 const { tableClient } = require('../azure/azureClient');
 const { v4: uuidv4 } = require('uuid');
 
-async function guardarMensaje({ texto, destinatarios = "", remitente, urlArchivo = "" }) {
+async function guardarMensaje({ texto, destinatarios = [], remitente, urlArchivo = "" }) {
   const fecha = new Date().toISOString();
   const estado = "enviado";
-  const partitionKey = "chat_general";
+  const PartitionKey = "chat_general";
 
-  const destinatariosArray = destinatarios.split(',').map(d => d.trim()).filter(d => d);
+  // Asegurar que destinatarios sea un array limpio
+  const destinatariosArray = Array.isArray(destinatarios)
+    ? destinatarios.filter(d => typeof d === "string" && d.trim() !== "")
+    : [];
 
-  const mensajesGuardados = [];
+  // Evitar enviarse mensaje a sí mismo (opcional)
+  const destinatariosFiltrados = destinatariosArray.filter(d => d !== remitente);
 
-  for (const destinatario of destinatariosArray) {
-    const rowKey = uuidv4();
+  const mensajesGuardados = await Promise.all(destinatariosFiltrados.map(async (destinatario) => {
+    const RowKey = uuidv4();
 
     const entidad = {
-      partitionKey,
-      rowKey,
+      PartitionKey,
+      RowKey,
       fecha,
-      texto,
+      texto: texto || "",
       estado,
       destinatario,
-      remitente,
-      urlArchivo,
-      leido:false
+      remitente: remitente || "desconocido",
+      urlArchivo: urlArchivo || "",
+      leido: false
     };
 
     await tableClient.createEntity(entidad);
     console.log("✅ Entidad guardada:", entidad);
-    
-
-    mensajesGuardados.push(entidad);
-  }
+    return entidad;
+  }));
 
   return mensajesGuardados;
 }
